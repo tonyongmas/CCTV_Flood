@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCTV แผนที่จุดวัดน้ำ - เทศบาลตำบลตันหยงมัส</title>
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <style>
+    body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Tahoma', sans-serif; }
+    #map { height: 100vh; width: 100%; }
+    .popup-content { width: 200px; }
+    .popup-content img { width: 100%; border-radius: 8px; margin-top: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+    .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 0.8em; color: white; }
+    .status-normal { background-color: #28a745; }
+    .status-warning { background-color: #ffc107; color: black; }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+  // ระบุ URL ของ Web App (GAS) ที่คุณ Deploy ไว้
+  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxVKsFPtvjXIxK-lNUFi_oF_Em-lPtJPsxeng4URLW4iKKM-24KtvqvMDhFFpdn-7He_A/exec';
+
+  // 1. ตั้งค่าแผนที่เริ่มต้น (ศูนย์กลางที่ ตันหยงมัส)
+  const map = L.map('map').setView([6.2985, 101.7300], 14);
+
+  // 2. แผนที่แบบถนน (OpenStreetMap)
+  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  });
+
+  // 3. แผนที่แบบดาวเทียม (Esri)
+  const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS'
+  });
+
+  // เพิ่ม OSM เป็นค่าเริ่มต้น
+  osm.addTo(map);
+
+  // ตัวเลือกสลับ Layer แผนที่
+  const baseMaps = {
+    "แผนที่ถนน": osm,
+    "แผนที่ดาวเทียม": satellite
+  };
+  L.control.layers(baseMaps).addTo(map);
+
+  // 4. ฟังก์ชันดึงข้อมูลจาก GAS ด้วย Fetch API
+  async function loadCCTVData() {
+    try {
+      const response = await fetch(WEB_APP_URL);
+      const data = await response.json();
+      
+      data.forEach(point => {
+        const marker = L.marker([point.lat, point.lng]).addTo(map);
+        
+        const statusClass = point.status === 'ปกติ' ? 'status-normal' : 'status-warning';
+        
+        const popupContent = `
+          <div class="popup-content">
+            <div style="font-weight: bold; font-size: 1.1em;">${point.name}</div>
+            <div style="margin: 5px 0;">สถานะ: <span class="status-badge ${statusClass}">${point.status}</span></div>
+            <img src="${point.imageUrl || 'https://via.placeholder.com/200x120?text=No+Signal'}" alt="CCTV Image">
+            <div style="font-size: 0.8em; color: #666; margin-top: 5px;">พิกัด: ${point.lat}, ${point.lng}</div>
+          </div>
+        `;
+        marker.bindPopup(popupContent);
+      });
+    } catch (error) {
+      console.error('Error loading data:', error);
+      alert('ไม่สามารถโหลดข้อมูลกล้อง CCTV ได้');
+    }
+  }
+
+  // เริ่มต้นโหลดข้อมูล
+  loadCCTVData();
+</script>
+
+</body>
+</html>
