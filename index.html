@@ -62,13 +62,20 @@
         const statusClass = point.status === 'ปกติ' ? 'status-normal' : 'status-warning';
         
         const popupContent = `
-          <div class="popup-content">
-            <div style="font-weight: bold; font-size: 1.1em;">${point.name}</div>
-            <div style="margin: 5px 0;">สถานะ: <span class="status-badge ${statusClass}">${point.status}</span></div>
-            <img src="${point.imageUrl || 'https://via.placeholder.com/200x120?text=No+Signal'}" alt="CCTV Image">
-            <div style="font-size: 0.8em; color: #666; margin-top: 5px;">พิกัด: ${point.lat}, ${point.lng}</div>
-          </div>
-        `;
+  <div class="popup-content">
+    <div style="font-weight: bold;">${point.name}</div>
+    <div style="margin-bottom: 5px;">สถานะ: <span class="status-badge ${statusClass}">${point.status}</span></div>
+    
+    <iframe src="${point.imageUrl}" 
+            width="100%" 
+            height="150" 
+            style="border:none; border-radius:8px;"
+            allow="autoplay">
+    </iframe>
+    
+    <div style="font-size: 0.8em; color: #666; margin-top: 5px;">พิกัด: ${point.lat}, ${point.lng}</div>
+  </div>
+`;
         marker.bindPopup(popupContent);
       });
     } catch (error) {
@@ -84,3 +91,4 @@
 </body>
 
 </html>
+
