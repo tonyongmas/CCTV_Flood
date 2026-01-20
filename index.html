@@ -1,96 +1,333 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CCTV แผนที่จุดวัดน้ำ - เทศบาลตำบลตันหยงมัส</title>
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  
-  <style>
-    body, html { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Tahoma', sans-serif; }
-    #map { height: 100vh; width: 100%; }
-    .popup-content { width: 200px; }
-    .popup-content img { width: 100%; border-radius: 8px; margin-top: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-    .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 0.8em; color: white; }
-    .status-normal { background-color: #28a745; }
-    .status-warning { background-color: #ffc107; color: black; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ระบบเฝ้าระวังสถานการณ์อุทกภัย (CCTV) เทศบาลตำบลตันหยงมัส</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- Color Palette & Core Styles --- */
+        :root {
+            --primary-blue: #0056b3;
+            --dark-blue: #004494;
+            --light-blue-bg: #eef6fc;
+            --text-dark: #333333;
+            --text-gray: #666666;
+            --text-light: #ffffff;
+            --danger-red: #dc3545;
+            --warning-yellow: #ffc107;
+            --success-green: #28a745;
+        }
+
+        body {
+            margin: 0; padding: 0; font-family: 'Sarabun', sans-serif;
+            overflow: hidden; display: flex; flex-direction: column;
+            height: 100vh; background-color: var(--light-blue-bg);
+        }
+
+        /* --- Header Styles --- */
+        header {
+            background: linear-gradient(135deg, var(--primary-blue), var(--dark-blue));
+            color: var(--text-light); padding: 12px 20px;
+            display: flex; align-items: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            flex: 0 0 auto; z-index: 1000;
+        }
+        .header-logo {
+            width: 55px; height: auto; margin-right: 15px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+        .header-titles h1 {
+            margin: 0; font-size: 20px; font-weight: 700; line-height: 1.2;
+        }
+        .header-titles p {
+            margin: 2px 0 0 0; font-size: 14px; font-weight: 300; opacity: 0.9;
+        }
+
+        /* --- Map Styles --- */
+        #map { flex: 1 1 auto; width: 100%; z-index: 1; }
+
+        /* --- Loader --- */
+        #loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(238, 246, 252, 0.98); z-index: 10000;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center; color: var(--primary-blue);
+        }
+        .spinner {
+            border: 4px solid #d0e7ff; border-top: 4px solid var(--primary-blue);
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite; margin-bottom: 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* --- New Modal Layout Styles --- */
+        .custom-modal-overlay {
+            display: none; position: fixed; z-index: 9999;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 30, 60, 0.75); /* Dark blue overlay */
+            backdrop-filter: blur(4px);
+            justify-content: center; align-items: center;
+            padding: 15px; box-sizing: border-box;
+        }
+
+        .custom-modal-content {
+            background-color: #fff;
+            border-radius: 16px;
+            width: 100%; max-width: 550px; /* ขนาดกำลังดีสำหรับวิดีโอ */
+            position: relative;
+            animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex; flex-direction: column;
+            padding: 0; /* เอา padding ออกเพื่อให้รูปชิดขอบ */
+        }
+
+        @keyframes popIn { from {transform: scale(0.95); opacity: 0;} to {transform: scale(1); opacity: 1;} }
+
+        /* 1. Video/Image Area (Top & Full Width) */
+        .modal-media-wrapper {
+            width: 100%;
+            height: 300px; /* ความสูงของพื้นที่วิดีโอ */
+            background-color: #000;
+            position: relative;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-image {
+            width: 100%; height: 100%; object-fit: cover;
+            display: block;
+        }
+        /* ปุ่มปิดลอยอยู่บนรูปมุมขวา */
+        .floating-close-btn {
+            position: absolute; top: 15px; right: 15px;
+            background: rgba(0,0,0,0.5); color: white;
+            width: 35px; height: 35px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; cursor: pointer; transition: 0.2s;
+            border: 1px solid rgba(255,255,255,0.3);
+            z-index: 10;
+        }
+        .floating-close-btn:hover { background: rgba(0,0,0,0.8); transform: scale(1.1); }
+
+        /* 2. Info Content Area */
+        .modal-info-body {
+            padding: 20px 25px;
+        }
+
+        /* ชื่อ + สถานะ บรรทัดเดียวกัน */
+        .modal-header-row {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            gap: 15px; margin-bottom: 8px;
+        }
+        .modal-title-text {
+            margin: 0; font-size: 20px; font-weight: 700; color: var(--text-dark);
+            line-height: 1.4; flex: 1;
+        }
+        .status-badge {
+            flex: 0 0 auto; /* ไม่ยืดหด */
+            padding: 4px 12px; border-radius: 20px;
+            color: white; font-size: 14px; font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            white-space: nowrap; height: fit-content;
+        }
+
+        /* Lat-Long Row */
+        .lat-long-row {
+            display: flex; align-items: center; gap: 6px;
+            color: var(--text-gray); font-size: 14px; font-weight: 400;
+            margin-bottom: 20px; background: #f5f8fa;
+            padding: 8px 12px; border-radius: 8px; width: fit-content;
+        }
+        .lat-long-row svg { width: 16px; height: 16px; opacity: 0.7; }
+
+        /* Detail Text */
+        .detail-text {
+            font-size: 15px; line-height: 1.6; color: var(--text-dark);
+            border-top: 1px solid #eee; padding-top: 15px;
+        }
+
+        /* Footer Button */
+        .modal-footer {
+            padding: 0 25px 25px 25px;
+        }
+        .close-action-btn {
+            background-color: var(--primary-blue);
+            color: white; width: 100%; padding: 12px; border: none;
+            border-radius: 10px; font-size: 16px; font-weight: 600;
+            cursor: pointer; transition: background-color 0.2s;
+            box-shadow: 0 4px 10px rgba(0,86,179,0.2);
+        }
+        .close-action-btn:hover { background-color: var(--dark-blue); }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .modal-media-wrapper { height: 240px; }
+            .modal-title-text { font-size: 18px; }
+            .header-titles h1 { font-size: 18px; }
+        }
+    </style>
 </head>
 <body>
 
-<div id="map"></div>
+    <header>
+        <img src="https://img2.pic.in.th/pic/71f81565dc59a7f9545542493a5514ab.png" alt="โลโก้เทศบาล" class="header-logo">
+        <div class="header-titles">
+            <h1>ระบบเฝ้าระวังและติดตามสถานการณ์อุทกภัย (CCTV)</h1>
+            <p>เทศบาลตำบลตันหยงมัส</p>
+        </div>
+    </header>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <div id="loader">
+        <div class="spinner"></div>
+        <div style="font-weight: 500;">กำลังเชื่อมต่อข้อมูล...</div>
+    </div>
 
-<script>
-  // ระบุ URL ของ Web App (GAS) ที่คุณ Deploy ไว้
-  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxVKsFPtvjXIxK-lNUFi_oF_Em-lPtJPsxeng4URLW4iKKM-24KtvqvMDhFFpdn-7He_A/exec';
+    <div id="map"></div>
 
-  // 1. ตั้งค่าแผนที่เริ่มต้น (ศูนย์กลางที่ ตันหยงมัส)
-  const map = L.map('map').setView([6.2985, 101.7300], 14);
+    <div id="infoModal" class="custom-modal-overlay" onclick="handleOverlayClick(event)">
+        <div class="custom-modal-content">
+            <div class="modal-media-wrapper" id="modalMedia">
+                <div class="floating-close-btn" onclick="closeModal()">&times;</div>
+            </div>
 
-  // 2. แผนที่แบบถนน (OpenStreetMap)
-  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors'
-  });
+            <div class="modal-info-body">
+                <div class="modal-header-row">
+                    <h2 id="modalTitle" class="modal-title-text">...</h2>
+                    <span id="modalStatus" class="status-badge">...</span>
+                </div>
 
-  // 3. แผนที่แบบดาวเทียม (Esri)
-  const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS'
-  });
+                <div class="lat-long-row">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                    <span id="modalCoords">Lat: -, Long: -</span>
+                </div>
 
-  // เพิ่ม OSM เป็นค่าเริ่มต้น
-  osm.addTo(map);
+                <div id="modalDetail" class="detail-text">
+                    </div>
+            </div>
 
-  // ตัวเลือกสลับ Layer แผนที่
-  const baseMaps = {
-    "แผนที่ถนน": osm,
-    "แผนที่ดาวเทียม": satellite
-  };
-  L.control.layers(baseMaps).addTo(map);
+            <div class="modal-footer">
+                <button class="close-action-btn" onclick="closeModal()">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
 
-  // 4. ฟังก์ชันดึงข้อมูลจาก GAS ด้วย Fetch API
-  async function loadCCTVData() {
-    try {
-      const response = await fetch(WEB_APP_URL);
-      const data = await response.json();
-      
-      data.forEach(point => {
-        const marker = L.marker([point.lat, point.lng]).addTo(map);
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+        // --- Config ---
+        const MAP_CENTER = [6.2736, 101.7828];
+        const MAP_ZOOM = 14;
+        const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxVKsFPtvjXIxK-lNUFi_oF_Em-lPtJPsxeng4URLW4iKKM-24KtvqvMDhFFpdn-7He_A/exec';
+
+        // --- Colors ---
+        const COLORS = {
+            success: '#28a745', warning: '#ffc107', danger: '#dc3545', default: '#6c757d', primaryBlue: '#0056b3'
+        };
+
+        // --- Map Setup ---
+        const map = L.map('map', { zoomControl: false }).setView(MAP_CENTER, MAP_ZOOM);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // --- Helpers ---
+        const cameraIconConfig = L.icon({
+            iconUrl: 'https://img5.pic.in.th/file/secure-sv1/icon86b8c7b19711828d.png',
+            iconSize: [35, 35], iconAnchor: [17, 17], popupAnchor: [0, -10]
+        });
+
+        const getStatusColor = (status) => {
+            if(status === 'ปกติ') return COLORS.success;
+            if(status === 'เฝ้าระวัง') return COLORS.warning;
+            if(status === 'วิกฤต') return COLORS.danger;
+            return COLORS.default;
+        };
+
+        // --- Fetch Data ---
+        async function fetchData() {
+            const loader = document.getElementById('loader');
+            try {
+                const response = await fetch(GAS_API_URL);
+                const data = await response.json();
+                
+                if (data && data.length > 0) {
+                    data.forEach(item => createMarker(item));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+            loader.style.opacity = '0';
+            setTimeout(() => { loader.style.display = 'none'; }, 300);
+        }
+
+        function createMarker(item) {
+            let marker;
+            if (item.type && item.type.toString().toLowerCase() === 'camera') {
+                marker = L.marker([item.lat, item.lng], { icon: cameraIconConfig });
+            } else {
+                marker = L.circleMarker([item.lat, item.lng], {
+                    radius: 12, fillColor: getStatusColor(item.status),
+                    color: "#fff", weight: 3, opacity: 1, fillOpacity: 0.9
+                });
+            }
+            marker.on('click', () => openModal(item));
+            marker.addTo(map);
+        }
+
+        // --- New Modal Logic ---
+        const modal = document.getElementById('infoModal');
         
-        const statusClass = point.status === 'ปกติ' ? 'status-normal' : 'status-warning';
-        
-        const popupContent = `
-  <div class="popup-content">
-    <div style="font-weight: bold;">${point.name}</div>
-    <div style="margin-bottom: 5px;">สถานะ: <span class="status-badge ${statusClass}">${point.status}</span></div>
-    
-    <iframe src="${point.imageUrl}" 
-            width="100%" 
-            height="150" 
-            style="border:none; border-radius:8px;"
-            allow="autoplay">
-    </iframe>
-    
-    <div style="font-size: 0.8em; color: #666; margin-top: 5px;">พิกัด: ${point.lat}, ${point.lng}</div>
-  </div>
-`;
-        marker.bindPopup(popupContent);
-      });
-    } catch (error) {
-      console.error('Error loading data:', error);
-      alert('ไม่สามารถโหลดข้อมูลกล้อง CCTV ได้');
-    }
-  }
+        // Elements to update
+        const uiMedia = document.getElementById('modalMedia');
+        const uiTitle = document.getElementById('modalTitle');
+        const uiStatus = document.getElementById('modalStatus');
+        const uiCoords = document.getElementById('modalCoords');
+        const uiDetail = document.getElementById('modalDetail');
 
-  // เริ่มต้นโหลดข้อมูล
-  loadCCTVData();
-</script>
+        function openModal(data) {
+            const color = getStatusColor(data.status);
+            const isCamera = data.type && data.type.toString().toLowerCase() === 'camera';
 
+            // 1. Set Image (Top Full Width)
+            let mediaContent = `<div class="floating-close-btn" onclick="closeModal()">&times;</div>`;
+            if (data.img) {
+                mediaContent += `<img src="${data.img}" class="modal-image" alt="CCTV View">`;
+            } else {
+                // Placeholder for No Signal
+                mediaContent += `
+                    <div style="width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#eee; color:#777;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                        <span style="margin-top:10px;">ไม่พบสัญญาณภาพ</span>
+                    </div>`;
+            }
+            uiMedia.innerHTML = mediaContent;
+
+            // 2. Set Title & Status
+            uiTitle.textContent = data.title || 'จุดเฝ้าระวัง';
+            uiStatus.textContent = data.status || 'ไม่ระบุ';
+            uiStatus.style.backgroundColor = color;
+
+            // 3. Set Lat/Long
+            uiCoords.textContent = `พิกัด: ${parseFloat(data.lat).toFixed(5)}, ${parseFloat(data.lng).toFixed(5)}`;
+
+            // 4. Set Detail
+            uiDetail.textContent = data.detail || '-';
+
+            // Show Modal
+            modal.style.display = "flex";
+        }
+
+        function closeModal() { modal.style.display = "none"; }
+        function handleOverlayClick(e) { if (e.target === modal) closeModal(); }
+
+        // Start
+        document.addEventListener("DOMContentLoaded", fetchData);
+
+    </script>
 </body>
-
 </html>
-
-
-
