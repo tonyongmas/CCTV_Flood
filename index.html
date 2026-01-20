@@ -172,7 +172,10 @@
         }
         .close-action-btn:hover { background-color: var(--dark-blue); }
 
-        @media (max-width: 600px) { .modal-media-wrapper { height: 220px; } }
+        @media (max-width: 600px) { 
+        .modal-media-wrapper { height: 220px; } 
+        .fullscreen-btn { display: none !important; } /* เพิ่มบรรทัดนี้: ซ่อนปุ่มเมื่อจอเล็ก */
+        }
     </style>
 </head>
 <body>
