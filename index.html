@@ -84,7 +84,24 @@
             width: 100%; height: 280px; background-color: #000;
             position: relative; display: flex; align-items: center; justify-content: center;
         }
-        .modal-image { width: 100%; height: 100%; object-fit: cover; }
+        
+        .modal-image { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; /* ปกติให้เต็มกรอบแบบตัดขอบ */
+        }
+
+        /* --- [FIX] แก้ไขสัดส่วนเมื่อ Fullscreen บนมือถือ --- */
+        /* บังคับให้ใช้ contain เมื่ออยู่ในโหมด Fullscreen */
+        #activeImage:fullscreen,
+        #activeImage:-webkit-full-screen,
+        #activeImage:-moz-full-screen,
+        #activeImage:-ms-fullscreen {
+            object-fit: contain !important; /* แสดงภาพเต็มใบ ไม่ตัดขอบ */
+            background-color: black;
+            width: 100vw;
+            height: 100vh;
+        }
 
         /* LIVE Badge */
         .live-badge {
@@ -97,7 +114,7 @@
         .live-dot { width: 8px; height: 8px; background-color: white; border-radius: 50%; animation: blink 1s infinite; }
         @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.3;} 100% {opacity: 1;} }
 
-        /* Buttons on Image */
+        /* Buttons */
         .floating-close-btn {
             position: absolute; top: 15px; right: 15px;
             background: rgba(0,0,0,0.4); color: white;
@@ -108,19 +125,16 @@
         }
         .floating-close-btn:hover { background: rgba(220,53,69,0.9); border-color: transparent; }
 
-        /* --- [NEW] Fullscreen Button --- */
         .fullscreen-btn {
             position: absolute; bottom: 15px; right: 15px;
             background: rgba(0,0,0,0.6); color: white;
             width: 35px; height: 35px; border-radius: 8px;
             display: flex; align-items: center; justify-content: center;
             cursor: pointer; z-index: 20; transition: 0.2s;
-            backdrop-filter: blur(2px);
-            border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(2px); border: 1px solid rgba(255,255,255,0.2);
         }
         .fullscreen-btn:hover { background: rgba(0,0,0,0.9); transform: scale(1.1); }
         .fullscreen-btn svg { width: 20px; height: 20px; }
-
 
         /* Info Body */
         .modal-info-body { padding: 25px; }
@@ -216,7 +230,7 @@
         L.control.zoom({ position: 'bottomright' }).addTo(map);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
 
-       const getStatusConfig = (status) => {
+         const getStatusConfig = (status) => {
             if(status === 'ปกติ') return { color: '#28a745', icon: '✅', pulseClass: 'pulse-normal' };
             if(status === 'เฝ้าระวัง') return { color: '#ffc107', icon: '⚠️', pulseClass: 'pulse-warning' };
             if(status === 'วิกฤต') return { color: '#dc3545', icon: '🚨', pulseClass: 'pulse-danger' };
@@ -265,7 +279,6 @@
             if (isCamera) { mediaHTML += `<div class="live-badge"><div class="live-dot"></div> LIVE</div>`; }
 
             if (data.img) {
-                // ใส่รูป และ ปุ่ม Fullscreen
                 mediaHTML += `
                     <img src="${data.img}" class="modal-image" id="activeImage" alt="CCTV">
                     <div class="fullscreen-btn" onclick="triggerFullScreen()" title="ขยายเต็มจอ">
@@ -300,8 +313,8 @@
             const img = document.getElementById('activeImage');
             if (img) {
                 if (img.requestFullscreen) { img.requestFullscreen(); } 
-                else if (img.webkitRequestFullscreen) { img.webkitRequestFullscreen(); } // Safari
-                else if (img.msRequestFullscreen) { img.msRequestFullscreen(); } // IE11
+                else if (img.webkitRequestFullscreen) { img.webkitRequestFullscreen(); } 
+                else if (img.msRequestFullscreen) { img.msRequestFullscreen(); } 
             }
         }
 
